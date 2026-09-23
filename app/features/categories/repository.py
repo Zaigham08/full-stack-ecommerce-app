@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.categories.model import Category
@@ -49,6 +49,50 @@ class CategoryRepository:
         result = await self.db.execute(
             select(Category).where(
                 Category.slug == slug
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def get_by_name_or_slug(
+        self,
+        *,
+        name: str,
+        slug: str,
+    ) -> Category | None:
+        result = await self.db.execute(
+            select(Category).where(
+                or_(
+                    Category.name == name,
+                    Category.slug == slug,
+                )
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def get_by_name_or_slug_excluding(
+        self,
+        *,
+        name: str | None,
+        slug: str | None,
+        category_id: uuid.UUID,
+    ) -> Category | None:
+        conditions = []
+
+        if name is not None:
+            conditions.append(Category.name == name)
+
+        if slug is not None:
+            conditions.append(Category.slug == slug)
+
+        if not conditions:
+            return None
+
+        result = await self.db.execute(
+            select(Category).where(
+                or_(*conditions),
+                Category.id != category_id,
             )
         )
 

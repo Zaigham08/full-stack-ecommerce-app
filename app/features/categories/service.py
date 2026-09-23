@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
@@ -19,8 +20,9 @@ class CategoryService:
         self,
         data: CreateCategoryDto,
     ):
-        existing_category = await self.repository.get_by_slug(
-            data.slug
+        existing_category = await self.repository.get_by_name_or_slug(
+            name=data.name,
+            slug=data.slug,
         )
 
         if existing_category:
@@ -36,6 +38,11 @@ class CategoryService:
             await self.db.commit()
 
             return category
+
+        except IntegrityError as exc:
+            await self.db.rollback()
+
+            raise CategoryAlreadyExistsError() from exc
 
         except Exception:
             await self.db.rollback()
@@ -71,6 +78,18 @@ class CategoryService:
         if category is None:
             raise CategoryNotFoundError()
 
+        existing_category = (
+            await self.repository
+            .get_by_name_or_slug_excluding(
+                name=data.name,
+                slug=data.slug,
+                category_id=category_id,
+            )
+        )
+
+        if existing_category:
+            raise CategoryAlreadyExistsError()
+
         try:
             category = await self.repository.update(
                 category,
@@ -82,6 +101,11 @@ class CategoryService:
             await self.db.commit()
 
             return category
+
+        except IntegrityError as exc:
+            await self.db.rollback()
+
+            raise CategoryAlreadyExistsError() from exc
 
         except Exception:
             await self.db.rollback()
