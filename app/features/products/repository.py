@@ -71,6 +71,7 @@ class ProductRepository:
         self,
         *,
         product_id: uuid.UUID,
+        storage_path: str,
         image_url: str,
         alt_text: str | None,
         sort_order: int,
@@ -78,6 +79,7 @@ class ProductRepository:
     ) -> ProductImage:
         image = ProductImage(
             product_id=product_id,
+            storage_path=storage_path,
             image_url=image_url,
             alt_text=alt_text,
             sort_order=sort_order,
@@ -90,6 +92,22 @@ class ProductRepository:
         await self.db.refresh(image)
 
         return image
+
+    async def clear_primary_images(
+        self,
+        product_id: uuid.UUID,
+    ) -> None:
+        result = await self.db.execute(
+            select(ProductImage).where(
+                ProductImage.product_id == product_id,
+                ProductImage.is_primary.is_(True),
+            )
+        )
+
+        for image in result.scalars().all():
+            image.is_primary = False
+
+        await self.db.flush()
 
 
     async def list_products(
@@ -238,6 +256,20 @@ class ProductRepository:
         result = await self.db.execute(
             select(ProductImage).where(
                 ProductImage.id == image_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def get_image_by_product(
+        self,
+        product_id: uuid.UUID,
+        image_id: uuid.UUID,
+    ) -> ProductImage | None:
+        result = await self.db.execute(
+            select(ProductImage).where(
+                ProductImage.id == image_id,
+                ProductImage.product_id == product_id,
             )
         )
 

@@ -131,6 +131,11 @@ class ProductImage(Base):
         index=True,
     )
 
+    storage_path: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
     image_url: Mapped[str] = mapped_column(
         String(500),
         nullable=False,

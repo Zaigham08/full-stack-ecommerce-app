@@ -80,6 +80,21 @@ async def update_stock(
     )
 
 
+@router.delete(
+    "/{product_id}",
+    response_model=ProductResponseDto,
+)
+async def deactivate_product(
+    product_id: UUID,
+    service: ProductService = Depends(
+        get_product_service,
+    ),
+) -> ProductResponseDto:
+    return await service.deactivate_product(
+        product_id,
+    )
+
+
 @router.post(
     "/{product_id}/images",
     response_model=ProductImageResponseDto,
@@ -105,28 +120,17 @@ async def add_product_image(
 
 
 @router.delete(
-    "/{product_id}",
-    response_model=ProductResponseDto,
-)
-async def deactivate_product(
-    product_id: UUID,
-    service: ProductService = Depends(
-        get_product_service,
-    ),
-) -> ProductResponseDto:
-    return await service.deactivate_product(
-        product_id,
-    )
-
-
-@router.delete(
-    "/images/{image_id}",
+    "/{product_id}/images/{image_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_product_image(
+    product_id: UUID,
     image_id: UUID,
     service: ProductService = Depends(
         get_product_service,
     ),
 ) -> None:
-    await service.delete_product_image(image_id)
+    await service.delete_product_image(
+        product_id,
+        image_id,
+    )

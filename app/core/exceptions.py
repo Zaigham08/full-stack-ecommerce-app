@@ -79,6 +79,24 @@ class ProductImageNotFoundError(AppException):
             status_code=404,
         )
 
+class InvalidImageError(AppException):
+    def __init__(self):
+        super().__init__(
+            message=(
+                "Invalid image. "
+                "Only JPEG, PNG and WebP images "
+                "up to 5 MB are allowed."
+            ),
+            status_code=400,
+        )
+
+class StorageError(AppException):
+    def __init__(self):
+        super().__init__(
+            message="File storage operation failed.",
+            status_code=500,
+        )
+
 class CartNotFoundError(AppException):
     def __init__(self):
         super().__init__(

@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from app.api.router import router
 from app.api.admin_router import router as admin_router
 from app.core.handlers import register_exception_handlers
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
     title="Ecommerce API",
@@ -24,10 +23,4 @@ app.include_router(
 app.include_router(
     admin_router,
     prefix="/api/v1",
-)
-
-app.mount(
-    "/uploads",
-    StaticFiles(directory="uploads"),
-    name="uploads",
 )

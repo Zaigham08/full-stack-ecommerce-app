@@ -21,10 +21,9 @@ from app.features.products.dto import (
 from app.features.products.repository import ProductRepository
 
 from app.core.storage import (
-    save_product_image,
-    delete_product_image_file,
+    delete_product_image,
+    upload_product_image,
 )
-
 
 class ProductService:
     def __init__(self, db: AsyncSession):
@@ -90,22 +89,42 @@ class ProductService:
         sort_order: int = 0,
         is_primary: bool = False,
     ):
-        product = await self.product_repository.get_active_by_id(
-            product_id
+        product = await (
+            self.product_repository
+            .get_active_by_id(product_id)
         )
 
         if product is None:
             raise ProductNotFoundError()
 
-        image_url = await save_product_image(file)
+        storage_path = None
 
         try:
-            image = await self.product_repository.create_image(
-                product_id=product_id,
-                image_url=image_url,
-                alt_text=alt_text,
-                sort_order=sort_order,
-                is_primary=is_primary,
+            storage_path, image_url = (
+                await upload_product_image(
+                    file=file,
+                    product_id=product_id,
+                )
+            )
+
+            if is_primary:
+                await (
+                    self.product_repository
+                    .clear_primary_images(
+                        product_id
+                    )
+                )
+
+            image = (
+                await self.product_repository
+                .create_image(
+                    product_id=product_id,
+                    storage_path=storage_path,
+                    image_url=image_url,
+                    alt_text=alt_text,
+                    sort_order=sort_order,
+                    is_primary=is_primary,
+                )
             )
 
             await self.db.commit()
@@ -114,6 +133,18 @@ class ProductService:
 
         except Exception:
             await self.db.rollback()
+
+            if storage_path is not None:
+                try:
+                    await delete_product_image(
+                        storage_path
+                    )
+                except Exception:
+                    # The database transaction has already
+                    # failed. Storage cleanup failure should
+                    # not hide the original exception.
+                    pass
+
             raise
 
     async def list_products(
@@ -238,21 +269,42 @@ class ProductService:
 
     async def delete_product_image(
         self,
+        product_id: uuid.UUID,
         image_id: uuid.UUID,
     ):
-        image = await self.product_repository.get_image_by_id(
-            image_id
+        image = (
+            await self.product_repository
+            .get_image_by_product(
+                product_id,
+                image_id,
+            )
         )
 
-        if image is None:   
+        if image is None:
             raise ProductImageNotFoundError()
 
+        storage_path = image.storage_path
+
         try:
-            delete_product_image_file(image.image_url)
-            
-            await self.product_repository.delete_image(image)
+            await (
+                self.product_repository
+                .delete_image(image)
+            )
+
             await self.db.commit()
 
         except Exception:
             await self.db.rollback()
             raise
+
+        # Database deletion succeeded.
+        # Remove the physical object from Supabase.
+        try:
+            await delete_product_image(
+                storage_path
+            )
+        except Exception:
+            # The DB record is already gone.
+            # Don't pretend the entire operation rolled back.
+            # This can be handled by a cleanup job later.
+            pass
