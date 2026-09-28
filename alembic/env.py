@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.database.base import Base
 
 from app.features.users.model import User
+from app.features.auth.model import RefreshToken
 from app.features.categories.model import Category
 from app.features.products.model import Product
 from app.features.products.model import ProductImage

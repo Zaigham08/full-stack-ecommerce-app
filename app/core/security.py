@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 
 import jwt
 from pwdlib import PasswordHash
 
 from app.core.config import get_settings
 from app.core.exceptions import InvalidTokenError
-
 
 settings = get_settings()
 
@@ -29,8 +30,9 @@ def verify_password(
 def create_access_token(
     subject: str,
 ) -> str:
+    now = datetime.now(timezone.utc)
     expires_at = (
-        datetime.now(timezone.utc)
+        now
         + timedelta(
             minutes=settings.access_token_expire_minutes
         )
@@ -38,6 +40,7 @@ def create_access_token(
 
     payload = {
         "sub": subject,
+        "iat": now,
         "exp": expires_at,
     }
 
@@ -65,3 +68,15 @@ def decode_access_token(token: str) -> str:
 
     except jwt.PyJWTError as exc:
         raise InvalidTokenError() from exc
+
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(
+    token: str,
+) -> str:
+    return hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()
