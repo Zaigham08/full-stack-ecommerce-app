@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.addresses.model import Address
@@ -61,3 +61,31 @@ class AddressRepository:
         )
 
         return list(result.scalars().all())
+
+    async def get_default_by_user(
+        self,
+        user_id: uuid.UUID,
+    ) -> Address | None:
+        result = await self.db.execute(
+            select(Address).where(
+                Address.user_id == user_id,
+                Address.is_default.is_(True),
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def clear_default_by_user(
+        self,
+        user_id: uuid.UUID,
+    ) -> None:
+        await self.db.execute(
+            update(Address)
+            .where(
+                Address.user_id == user_id,
+                Address.is_default.is_(True),
+            )
+            .values(is_default=False)
+        )
+
+        await self.db.flush()

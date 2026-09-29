@@ -5,9 +5,11 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,6 +19,15 @@ from app.database.base import Base
 
 class Address(Base):
     __tablename__ = "addresses"
+
+    __table_args__ = (
+        Index(
+            "uq_one_default_address_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("is_default = true"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
