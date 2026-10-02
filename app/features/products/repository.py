@@ -120,17 +120,25 @@ class ProductRepository:
         min_price=None,
         max_price=None,
         sort: str = "newest",
+        include_inactive: bool = False,
     ) -> tuple[list[Product], int]:
+
         query = (
             select(Product)
             .options(selectinload(Product.images))
-            .where(Product.is_active.is_(True))
         )
 
-        count_query = (
-            select(func.count(Product.id))
-            .where(Product.is_active.is_(True))
-        )
+        count_query = select(func.count(Product.id))
+
+        # Customer API -> active only
+        # Admin API -> active + inactive
+        if not include_inactive:
+            query = query.where(
+                Product.is_active.is_(True)
+            )
+            count_query = count_query.where(
+                Product.is_active.is_(True)
+            )
 
         if search:
             search_pattern = f"%{search.strip()}%"
@@ -162,40 +170,29 @@ class ProductRepository:
             count_query = count_query.where(price_filter)
 
         if sort == "newest":
-            query = query.order_by(
-                Product.created_at.desc()
-            )
+            query = query.order_by(Product.created_at.desc())
 
         elif sort == "oldest":
-            query = query.order_by(
-                Product.created_at.asc()
-            )
+            query = query.order_by(Product.created_at.asc())
 
         elif sort == "price_asc":
-            query = query.order_by(
-                Product.price.asc()
-            )
+            query = query.order_by(Product.price.asc())
 
         elif sort == "price_desc":
-            query = query.order_by(
-                Product.price.desc()
-            )
+            query = query.order_by(Product.price.desc())
 
         elif sort == "name_asc":
-            query = query.order_by(
-                Product.name.asc()
-            )
+            query = query.order_by(Product.name.asc())
 
         elif sort == "name_desc":
-            query = query.order_by(
-                Product.name.desc()
-            )
+            query = query.order_by(Product.name.desc())
 
         offset = (page - 1) * limit
 
         query = query.offset(offset).limit(limit)
 
         result = await self.db.execute(query)
+
         products = result.scalars().unique().all()
 
         count_result = await self.db.execute(count_query)
@@ -271,6 +268,18 @@ class ProductRepository:
                 ProductImage.id == image_id,
                 ProductImage.product_id == product_id,
             )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def get_by_id(
+        self,
+        product_id: uuid.UUID,
+    ) -> Product | None:
+        result = await self.db.execute(
+            select(Product)
+            .options(selectinload(Product.images))
+            .where(Product.id == product_id)
         )
 
         return result.scalar_one_or_none()

@@ -165,6 +165,24 @@ class ProductService:
 
         return products, total, pages
 
+    async def list_products_admin(
+        self,
+        params: ProductListQueryDto,
+    ):
+        products, total = await self.product_repository.list_products(
+            page=params.page,
+            limit=params.limit,
+            search=params.search,
+            category_id=params.category_id,
+            min_price=params.min_price,
+            max_price=params.max_price,
+            sort=params.sort,
+            include_inactive=True,
+        )
+
+        pages = math.ceil(total / params.limit)
+
+        return products, total, pages
 
     async def update_product(
         self,
@@ -266,6 +284,28 @@ class ProductService:
             await self.db.rollback()
             raise
 
+    async def activate_product(
+        self,
+        product_id: uuid.UUID,
+    ):
+        product = await self.product_repository.get_by_id(
+            product_id
+        )
+
+        if product is None:
+            raise ProductNotFoundError()
+
+        try:
+            product.is_active = True
+
+            await self.db.commit()
+            await self.db.refresh(product)
+
+            return product
+
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def delete_product_image(
         self,

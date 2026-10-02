@@ -1,3 +1,5 @@
+from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import (
@@ -5,23 +7,24 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Query,
     UploadFile,
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
-from app.features.auth.admin import get_current_admin
 from app.features.products.dto import (
     CreateProductDto,
     ProductImageResponseDto,
+    ProductListQueryDto,
+    ProductListResponseDto,
+    ProductListResponseDto,
     ProductResponseDto,
     UpdateProductDto,
     UpdateStockDto,
 )
 from app.features.products.service import ProductService
-from app.features.users.model import User
-
 
 router = APIRouter()
 
@@ -45,6 +48,68 @@ async def create_product(
 ) -> ProductResponseDto:
     return await service.create_product(data)
 
+@router.get(
+    "",
+    response_model=ProductListResponseDto,
+)
+async def list_products_admin(
+    page: int = Query(
+        default=1,
+        ge=1,
+    ),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+    ),
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=100,
+    ),
+    category_id: UUID | None = None,
+    min_price: Decimal | None = Query(
+        default=None,
+        ge=0,
+    ),
+    max_price: Decimal | None = Query(
+        default=None,
+        ge=0,
+    ),
+    sort: Literal[
+        "newest",
+        "oldest",
+        "price_asc",
+        "price_desc",
+        "name_asc",
+        "name_desc",
+    ] = "newest",
+    service: ProductService = Depends(
+        get_product_service,
+    ),
+) -> ProductListResponseDto:
+
+    params = ProductListQueryDto(
+        page=page,
+        limit=limit,
+        search=search,
+        category_id=category_id,
+        min_price=min_price,
+        max_price=max_price,
+        sort=sort,
+    )
+
+    products, total, pages = (
+        await service.list_products_admin(params)
+    )
+
+    return ProductListResponseDto(
+        items=products,
+        page=params.page,
+        limit=params.limit,
+        total=total,
+        pages=pages,
+    )
 
 @router.patch(
     "/{product_id}",
@@ -94,6 +159,19 @@ async def deactivate_product(
         product_id,
     )
 
+@router.patch(
+    "/{product_id}/activate",
+    response_model=ProductResponseDto,
+)
+async def activate_product(
+    product_id: UUID,
+    service: ProductService = Depends(
+        get_product_service,
+    ),
+) -> ProductResponseDto:
+    return await service.activate_product(
+        product_id
+    )
 
 @router.post(
     "/{product_id}/images",
